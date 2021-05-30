@@ -17,6 +17,8 @@ Hosted challenges are deployed on a Google Kubernetes Engine (GKE) cluster. Kube
 - Challenges are easy to deploy and their state is easy to update in-place.
 - Challenges can have resource limits. Resource limits protect against user overuse and inefficient code by ensuring one resource-hungry challenge pod does not compromise the entire cluster.
 
+## HAProxy
+
 ## Assumptions
 This repository is associated with the Chik-p project and as such makes several assumptions: 
 - You have a private multi-node GKE cluster behind a public HAProxy load balancer
@@ -38,10 +40,93 @@ Challenge developers must identify their challenges as either single-connection 
 
 ## Example #1: Provisioning Kubernetes Resources for a Single-Connection Challenge
 
+The Kubernetes resources below belong to a challenge called **Read Me a Fortune**. The player can solve the entire challenge over the course of a single SSH connection, therefore we classify it as a **Single-Connection Challenge**. 
+
+We define two Kubernetes objects: a **Deployment** object and a **Service** object. 
+
+We give the **Deployment** object a name and label it with the challenge category, the service name, and the challenge name, (since a challenge may have multiple deployments with different services). We specify the address of the Docker image belonging to the challenge in the **image** key. We set maximum CPU to 300m, maximum memory to 800Mi, and the number of replicas to 3. We expose the SSH port in the pod as this is how the player will connect. Finally, we set imagePullPolicy to always to ensure that the latest image is pulled with every update using the **kubectl** utility.
+
+Alone, a deployment cannot expose a challenge to the outside world. To do this, we need a **Service** or **Ingress** object. In this case, we use a **Service** of type **NodePort** to expose this challenge on port 30907 on all Kubernetes cluster nodes. More specifically, we map the node port, 30907, to port 22 in the challenge pod, the SSH port we exposed in the deployment. 
+
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: readmeafortune
+  labels:
+    category: sysadmin
+    challenge: readmeafortune
+    service: debian
+spec:
+  replicas: 3 
+  selector:
+    matchLabels:
+      category: sysadmin
+      challenge: readmeafortune
+      service: debian
+  template:
+    metadata:
+      labels:
+        category: sysadmin
+        challenge: readmeafortune
+        service: debian
+    spec:
+      containers:
+      - name: readmeafortune-debian-sysadmin
+        image: gcr.io/ctf-demo-project/0x00readmeafortune-debian-sysadmin:1.0
+        imagePullPolicy: Always
+        resources: 
+          limits:
+            cpu: 300m
+            memory: 800Mi
+          requests:
+            cpu: 20m
+            memory: 30Mi
+        ports:
+        - containerPort: 22
+          name: ssh-port
+       
+---
+
+
+apiVersion: v1
+kind: Service
+metadata: 
+  name: readmeafortune-debian-sysadmin
+  labels:
+    category: sysadmin 
+    challenge: readmeafortune
+    service: debian
+spec:
+  type: NodePort
+  selector:
+    category: sysadmin 
+    challenge: readmeafortune
+    service: debian
+  ports:
+    - port: 22 # The port exposed by the service
+      name: ssh-port
+      targetPort: 22 # The port exposed by the pod
+      nodePort: 30907 # The port that is exposed on each Node on the cluster     
+```
+
+Since the GKE cluster is a private cluster, this challenge is not yet live on the internet. To allow connections from the internet to this challenge, we create a `frontend` block in the HAProxy configuration file. This frontend block proxies all incoming connections to HAProxy on port 30907 to port 30907 on the internal cluster nodes. HAProxy load balances incoming connections between cluster nodes so that no one cluster node is overwhelmed.
+
+```
+frontend readmeafortune-sysadmin 
+        tcp-request connection reject if { src_conn_rate(Abuse) ge 50 }
+        tcp-request connection reject if { src_conn_cur(Abuse) ge 50 }
+        tcp-request connection track-sc1 src table Abuse
+        bind *:30907   
+```
 
 
 ## Example #2: Provisioning Kubernetes Resources for a Multi-Connection Challenge
 
+The Kubernetes resouces below belong to a Programming challenge called **Base64**. The challenge maintains session information through cookies and require more than a single HTTP request to solve where current requests are dependent on previous requests, therefore we classify it as a **Multi-Connection Challenge**.
+
+```
+```
 
 
 ## General Organization
