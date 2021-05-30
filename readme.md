@@ -208,6 +208,7 @@ Since this challenge is web-based, it is convenient to expose it to the internet
 - Configure session affinity using a "route" cookie to ensure that connections from the same web client persist to the same challenge pod replica for at most 600 seconds (10 minutes).
 - Limit the # of simultaneous connections to the challenge and requests per second
 
+Finally, we set the challenge's server name to `progbase64.ctf.issessions.ca`. Players visit `http://progbase64.ctf.issessions.ca` using any web client to connect to this challenge. (You would first have to add a public DNS A record mapping ingress-nginx's public IP to `progbase64.ctf.issessions.ca`).
 
 ```
 apiVersion: v1
