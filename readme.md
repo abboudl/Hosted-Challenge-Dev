@@ -9,7 +9,9 @@ Challenges must be organized in a standard format in order to:
 
 This repository is strictly for **Hosted Challenges**. File-based Challenges are maintained in a different repository.
 
-## Kubernetes
+## Infrastructure
+
+### Kubernetes
 
 Hosted challenges are deployed on a Google Kubernetes Engine (GKE) cluster. Kubernetes affords CTF organizers several benefits:
 - Challenges are self-healing. If a challenge goes down, the CTF administrator can instruct Kubernetes to automatically restart it.
@@ -17,7 +19,17 @@ Hosted challenges are deployed on a Google Kubernetes Engine (GKE) cluster. Kube
 - Challenges are easy to deploy and their state is easy to update in-place.
 - Challenges can have resource limits. Resource limits protect against user overuse and inefficient code by ensuring one resource-hungry challenge pod does not compromise the entire cluster.
 
-## HAProxy
+### HAProxy
+HAProxy is "is a free, very fast and reliable solution offering high availability, load balancing, and proxying for TCP and HTTP-based applications." It augments the CTF's infrastructure by:
+- Acting as a proxy to TCP-based challenges running on a private Google Kubernetes Engine (GKE) cluster
+- Providing load balancing to the nodes in the cluster so that no single node is overwhelmed with connections
+- Limiting the number of simultaneous connections to TCP-based challenges (netcat, SSH, etc.) 
+
+### ingress-nginx
+Ingress-Nginx is a traffic management solution for Kubernetes applications. It is used to:
+- expose HTTP-based challenges to the internet
+- configure sessions affinity for HTTP-based challenges
+- Limit the # of simultaneous connections and requests to HTTP-based challenges
 
 ## Assumptions
 This repository is associated with the Chik-p project and as such makes several assumptions: 
@@ -44,9 +56,9 @@ The Kubernetes resources below belong to a challenge called **Read Me a Fortune*
 
 We define two Kubernetes objects: a **Deployment** object and a **Service** object. 
 
-We give the **Deployment** object a name and label it with the challenge category, the service name, and the challenge name, (since a challenge may have multiple deployments with different services). We specify the address of the Docker image belonging to the challenge in the **image** key. We set maximum CPU to 300m, maximum memory to 800Mi, and the number of replicas to 3. We expose the SSH port in the pod as this is how the player will connect. Finally, we set imagePullPolicy to always to ensure that the latest image is pulled with every update using the **kubectl** utility.
+We give the **Deployment** object a name and label it with the challenge category, the service name, and the challenge name, (since a challenge may have multiple deployments with different services). We specify the address of the Docker image belonging to the challenge in the **image** key. We set maximum CPU to 300m, maximum memory to 800Mi, and the number of replicas to 3. We expose the SSH port in the pod as this is how the player will connect. Finally, we set imagePullPolicy to "always" to ensure that the latest image is pulled with every update using the **kubectl** utility.
 
-Alone, a deployment cannot expose a challenge to the outside world. To do this, we need a **Service** or **Ingress** object. In this case, we use a **Service** of type **NodePort** to expose this challenge on port 30907 on all Kubernetes cluster nodes. More specifically, we map the node port, 30907, to port 22 in the challenge pod, the SSH port we exposed in the deployment. 
+Alone, a deployment cannot by itself provide access and loadbalancing to challenge pods. To do this, we need a **Service** object. In this case, we use a **Service** of type **NodePort** to expose this challenge on port 30907 on all Kubernetes cluster nodes. More specifically, we map the node port, 30907, to port 22 in the challenge pod, the SSH port we exposed in the deployment. 
 
 ```
 apiVersion: apps/v1
@@ -123,11 +135,115 @@ frontend readmeafortune-sysadmin
 
 ## Example #2: Provisioning Kubernetes Resources for a Multi-Connection Challenge
 
-The Kubernetes resouces below belong to a Programming challenge called **Base64**. The challenge maintains session information through cookies and require more than a single HTTP request to solve where current requests are dependent on previous requests, therefore we classify it as a **Multi-Connection Challenge**.
+The Kubernetes resouces below belong to a Programming challenge called **Base64**. This challenge is web-based and is written in PHP. It maintains session information through cookies and requires more than a single HTTP request to solve where current requests are dependent on previous requests, therefore we classify it as a **Multi-Connection Challenge**.
+
+We define four Kubernetes objects: a **Deployment** object, a **Service** object, a **ConfigMap** object, and an **Ingress** object.
+
+We give the **Deployment** object a name and label it with the challenge category, the service name, and the challenge name, (since a challenge may have multiple deployments with different services). We specify the address of the Docker image belonging to the challenge in the **image** key. We set maximum CPU to 200m, maximum memory to 300Mi, and the number of replicas to 3. We expose the PHP-FPM port (9000) in the pod as this is the port ingress-nginx (an Nginx pod) uses to send HTTP requests to the backend PHP application server. Finally, we set imagePullPolicy to "always" to ensure that the latest image is pulled with every update using the **kubectl** utility.
 
 ```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: progbase64
+  labels:
+    category: programming
+    challenge: progbase64
+    service: php
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      category: programming
+      challenge: progbase64
+      service: php
+  template:
+    metadata:
+      labels:
+        category: programming
+        challenge: progbase64
+        service: php
+    spec:
+      containers:
+      - name: progbase64-php-programming
+        image: gcr.io/ctf-demo-project/0x00base64-php-programming:1.0
+        resources:
+          limits:
+            cpu: 200m
+            memory: 300Mi
+          requests:
+            cpu: 20m
+            memory: 30Mi
+        ports:
+        - containerPort: 9000
+          name: php-port
+	  
 ```
 
+Alone, a deployment cannot by itself provide access and loadbalancing to challenge pods. To do this, we need a **Service** object. In this case, we use a **Service** of type **ClusterIP**. We expose port 9000 in the ClusterIP service and map this port to the pods' php ports (9000). In other words, connections to port 9000 on the servie are loadbalanced to challenge pods on port 9000. We use the same port for the service and the challenge pods for simplicity.
+
+```
+apiVersion: v1
+kind: Service
+metadata: 
+  name: progbase64-php-programming
+  labels:
+    category: programming
+    challenge: progbase64
+    service: php
+spec:
+  type: ClusterIP
+  selector:
+    category: programming
+    challenge: progbase64
+    service: php
+  ports:
+    - port: 9000 # The port exposed by the service
+      name: php-port
+      targetPort: 9000 # The port exposed by the container
+```
+
+Since this challenge is web-based, it is convenient to expose it to the internet using a reverse proxy. In this case, we use ingress-nginx. This is an instance of the Nginx web server running as a Kubernetes pod. We define a **ConfigMap** to define the PHP script filename. Then we define an **Ingress** object. In the Ingress object, we:
+- Set the backend protocol to FastCGI
+- Configure session affinity using a "route" cookie to ensure that connections from the same web client persist to the same challenge pod replica for at most 600 seconds (10 minutes).
+- Limit the # of simultaneous connections to the challenge and requests per second
+
+
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-file-name-base64
+data:
+  SCRIPT_FILENAME: "/code/index.php"
+
+---
+
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/backend-protocol: "FCGI"
+    nginx.ingress.kubernetes.io/fastcgi-index: "index.php"
+    nginx.ingress.kubernetes.io/fastcgi-params-configmap: "script-file-name-base64"
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "route"
+    nginx.ingress.kubernetes.io/session-cookie-expires: "600"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "600"
+    nginx.ingress.kubernetes.io/limit-connections: "10"
+    nginx.ingress.kubernetes.io/limit-rps: "25"
+  name: progbase64
+spec:
+  rules:
+  - host: progbase64.ctf.issessions.ca
+    http:
+      paths:     
+      - path: /
+        backend:
+          serviceName: progbase64-php-programming
+          servicePort: php-port
+```
 
 ## General Organization
 
