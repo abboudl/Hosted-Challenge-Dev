@@ -1,0 +1,10 @@
+Connect to this challenge using netcat, a Linux command line networking utlity, with the <hostname> and <port> provided. 
+
+How to use netcat?
+------------------
+nc (hostname) (port)
+
+Challenge Info:
+---------------
+hostname: challenges.ctf.issessions.ca
+port: 30000

@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: progbase64
+  labels:
+    category: programming
+    challenge: progbase64
+    service: php
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      category: programming
+      challenge: progbase64
+      service: php
+  template:
+    metadata:
+      labels:
+        category: programming
+        challenge: progbase64
+        service: php
+    spec:
+      containers:
+      - name: progbase64-php-programming
+        image: gcr.io/ctf-demo-project/0x00base64-php-programming:1.0
+        resources:
+          limits:
+            cpu: 200m
+            memory: 300Mi
+          requests:
+            cpu: 20m
+            memory: 30Mi
+        ports:
+        - containerPort: 9000
+          name: php-port
+
+---
+
+apiVersion: v1
+kind: Service
+metadata: 
+  name: progbase64-php-programming
+  labels:
+    category: programming
+    challenge: progbase64
+    service: php
+spec:
+  type: ClusterIP
+  selector:
+    category: programming
+    challenge: progbase64
+    service: php
+  ports:
+    - port: 9000 # The port exposed by the service
+      name: php-port
+      targetPort: 9000 # The port exposed by the container
+
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: script-file-name-base64
+data:
+  SCRIPT_FILENAME: "/code/index.php"
+
+---
+
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/backend-protocol: "FCGI"
+    nginx.ingress.kubernetes.io/fastcgi-index: "index.php"
+    nginx.ingress.kubernetes.io/fastcgi-params-configmap: "script-file-name-base64"
+    nginx.ingress.kubernetes.io/affinity: "cookie"
+    nginx.ingress.kubernetes.io/session-cookie-name: "route"
+    nginx.ingress.kubernetes.io/session-cookie-expires: "600"
+    nginx.ingress.kubernetes.io/session-cookie-max-age: "600"
+    nginx.ingress.kubernetes.io/limit-connections: "10"
+    nginx.ingress.kubernetes.io/limit-rps: "25"
+  name: progbase64
+spec:
+  rules:
+  - host: progbase64.ctf.issessions.ca
+    http:
+      paths:     
+      - path: /
+        backend:
+          serviceName: progbase64-php-programming
+          servicePort: php-port

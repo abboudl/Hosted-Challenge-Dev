@@ -1,0 +1,7 @@
+#! /bin/bash
+
+for d in ./*/*/; do
+  if [ $(basename "$d") != "BASE-IMAGE" ]; then
+    ./challenge build "$d"
+  fi
+done

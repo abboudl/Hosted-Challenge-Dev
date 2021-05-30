@@ -1,0 +1,10 @@
+version: "3.5"
+
+services:
+  python:
+    container_name: allyourbases-pythontcpserver-cryptography
+    image: allyourbases-pythontcpserver-cryptography
+    build: ./docker_images/pythontcpserver/
+    ports:
+      - ${APP_IP}:${APP_PORT}:3000
+

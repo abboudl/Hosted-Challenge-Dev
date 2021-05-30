@@ -1,0 +1,9 @@
+version: "3.5"
+
+services:
+  challenge:
+    container_name: baseimage-debian-sysadmin
+    image: baseimage-debian-sysadmin:1.0
+    build: ./docker_images/debian/
+    ports:
+      - ${APP_IP}:${APP_PORT}:22

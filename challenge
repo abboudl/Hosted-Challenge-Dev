@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+
+RED="\e[31m"
+GREEN="\e[32m"
+YELLOW="\e[33m"
+BLUE="\e[34m"
+ENDCOLOR="\e[0m"
+
+# Check if two arguments were given
+if [ "$#" -ne 2 ]; then
+  echo -e "\n${RED}>>>USAGE: challenge [up|build|down] challenge_folder_path<<<${ENDCOLOR}"
+  exit 1
+fi
+
+ACTION="$1"
+CHALLENGE_FOLDER="$2"
+
+# Check if action verb is valid
+case "$ACTION" in
+  up|build|down) ;;
+  *)             echo -e "\n${RED}>>>ERROR: Invalid action. Exiting.<<<${ENDCOLOR}"; exit 1;;
+esac
+
+# Check if yq is installed
+if ! [ -x "$(command -v yq)" ]; then
+  echo -e "\n${RED}>>>ERROR: The yq commandline utility is not installed. Please install it first.<<<${ENDCOLOR}"
+  exit 2
+fi
+
+# Check if provided challenge folder exists
+if [ ! -d "$CHALLENGE_FOLDER" ]; then
+  echo -e "\n${RED}>>>$CHALLENGE_FOLDER does not exist. Are you sure you specified the right directory?<<<${ENDCOLOR}"
+  exit 4
+fi 
+
+# Check if manifest file exists
+if [ ! -f "$CHALLENGE_FOLDER/documentation/manifest.yml" ]; then
+  echo -e "\n${RED}>>>No manifest.yml file found. Are you sure you specified the right challenge directory?<<<${ENDCOLOR}"
+  exit 8
+fi
+
+# Go to challenge folder
+cd "$CHALLENGE_FOLDER"
+
+# Parse YAML manifest file with help of yq by Mike Farah
+GCP_PROJECT_NAME=$(yq e '.k8s.gcp_project_id' documentation/manifest.yml | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]') 
+VPC_NAME=$(yq e '.k8s.gcp_vpc' documentation/manifest.yml | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]') 
+CONTAINER_REGISTRY_ADDRESS=$(yq e '.k8s.gcr_address' documentation/manifest.yml | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+HOSTED_CHALLENGES_NAMESPACE=$(yq e '.k8s.gke_namespace' documentation/manifest.yml | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+CHALLENGE_NAME=$(yq e '.challenge.name' documentation/manifest.yml | tr -d '[:space:]' | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | cut -b1-20 | tr -d '\n')
+CHALLENGE_VERSION=$(yq e '.challenge.version' documentation/manifest.yml | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]' | cut -b1-20 | tr -d '\n')
+CHALLENGE_CATEGORY=$(yq e '.challenge.category' documentation/manifest.yml | tr -d '[:space:]' | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | cut -b1-20 | tr -d '\n')
+CHALLENGE_SERVICES=$(yq e '.k8s.services' documentation/manifest.yml | tr -d '[:space:]' | cut -b2- | sed 's/-/,/g')
+CHALLENGE_PORT=$(yq e '.k8s.port' documentation/manifest.yml | tr -d '[:space:]' | cut -b1-5 | tr -d '\n')
+
+# For every service in a challenge, perform action
+for SERVICE in $CHALLENGE_SERVICES; do
+
+  # Formulate image name from the challenge's name, service, and category	
+  IMAGE_ID="$CHALLENGE_NAME"-"$SERVICE"-"$CHALLENGE_CATEGORY":"$CHALLENGE_VERSION"
+
+  # Formulate full registry address
+  IMAGE_GCR_ADDRESS="$CONTAINER_REGISTRY_ADDRESS"/"$GCP_PROJECT_NAME"/"$IMAGE_ID"
+
+  # If "up", build, tag, and push image
+  if [ "$ACTION" == "up" ]; then
+    echo -e "\n${GREEN}>>>Building image $IMAGE_ID<<<${ENDCOLOR}"
+    docker build -t "$IMAGE_ID" ./docker_images/"$SERVICE"/ --no-cache
+    echo -e "\n${GREEN}>>>Tagging and pushing $IMAGE_ID to Google Container Registry<<<${ENDCOLOR}"
+    docker tag "$IMAGE_ID" "$IMAGE_GCR_ADDRESS"
+    docker push "$IMAGE_GCR_ADDRESS"
+  fi
+  
+  # If "build", build image locally
+  if [ "$ACTION" == "build" ]; then
+    echo -e "\n${GREEN}>>>Building image $IMAGE_ID<<<${ENDCOLOR}"
+    docker build -t "$IMAGE_ID" ./docker_images/"$SERVICE"/ --no-cache        
+  fi
+
+  # If "down", delete image in the remote registry and locally
+  if [ "$ACTION" == "down" ]; then
+    echo -e "\n${GREEN}>>>Deleting image $IMAGE_ID locally and from remote registry<<<${ENDCOLOR}"
+    gcloud container images delete "$IMAGE_GCR_ADDRESS" --force-delete-tags --quiet
+    docker image rm -f "$IMAGE_ID"
+    docker image rm -f "$IMAGE_GCR_ADDRESS"
+  fi
+done
+
+if [ "$ACTION" == "up" ]; then
+
+  # Deploy challenge to Kubernetes	
+  echo -e "\n${GREEN}>>>Deploying image $IMAGE_ID to GKE cluster<<<${ENDCOLOR}"
+  kubectl apply -f ./resources.yml --namespace="$HOSTED_CHALLENGES_NAMESPACE"
+
+  # If the challenge is exposed on Kubernetes using a NodePort service, we create 
+  # two firewall rules on GCP. 
+
+  # Otherwise, if challenge is web-based and is to be exposed on Kubernetes using
+  # a name-based virtual hosting scheme on ingress-nginx, this will be represented
+  # with a challenge port of 0. In this case, we do nothing.
+
+  # Rule #1: allows HAProxy to access the specified port on Kubernetes nodes
+  if [ $CHALLENGE_PORT -gt 0 ]; then
+
+    echo -e "\n${GREEN}>>>Creating Firewall Rule: Allow HAProxy to access port $CHALLENGE_PORT on GKE nodes for $IMAGE_ID<<<${ENDCOLOR}"
+    gcloud compute firewall-rules create "hapro-to-gke-$CHALLENGE_NAME-$CHALLENGE_CATEGORY-$CHALLENGE_PORT" \
+	    --network "issessions-ctf-vpc" \
+	    --direction "ingress" \
+	    --action "allow" \
+	    --rules "tcp:$CHALLENGE_PORT" \
+	    --source-tags "haproxy-server" \
+	    --priority "1000" \
+            --target-tags "hosted-challenges-node"
+
+    # Rule #2: allows everyone access to HAProxy on the specified port
+    echo -e "\n${GREEN}>>>Creating Firewall Rule: Allow everyone access to port $CHALLENGE_PORT on HAProxy host to allow global access to $IMAGE_ID<<<${ENDCOLOR}"
+    gcloud compute firewall-rules create "all-to-hapro-$CHALLENGE_NAME-$CHALLENGE_CATEGORY-$CHALLENGE_PORT" \
+	    --network "issessions-ctf-vpc" \
+	    --direction "ingress" \
+	    --action "allow" \
+	    --rules "tcp:$CHALLENGE_PORT" \
+	    --source-ranges "0.0.0.0/0" \
+	    --priority "1000" \
+	    --target-tags "haproxy-server"
+  fi
+fi
+
+if [ "$ACTION" == "down" ]; then
+
+  # Take down the challenge
+  echo -e "\n${GREEN}>>>Deleting image $IMAGE_ID from GKE cluster<<<${ENDCOLOR}"  
+  kubectl delete -f ./resources.yml --namespace="$HOSTED_CHALLENGES_NAMESPACE"
+
+  # If firewall rules were created to allow access to this challenge, delete them.
+  if [ "$CHALLENGE_PORT" -gt 0 ]; then
+    
+    echo -e "\n${GREEN}>>>Deleting Firewall Rule: Allow HAProxy to access port $CHALLENGE_PORT on GKE nodes for $IMAGE_ID<<<${ENDCOLOR}"
+    gcloud compute firewall-rules delete "hapro-to-gke-$CHALLENGE_NAME-$CHALLENGE_CATEGORY-$CHALLENGE_PORT" --quiet
+
+    echo -e "\n${GREEN}>>>Deleting Firewall Rule: Allow everyone access to port $CHALLENGE_PORT on HAProxy host to allow global access to $IMAGE_ID<<<${ENDCOLOR}"
+    gcloud compute firewall-rules delete "all-to-hapro-$CHALLENGE_NAME-$CHALLENGE_CATEGORY-$CHALLENGE_PORT" --quiet
+
+  fi
+fi
+

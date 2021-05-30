@@ -1,0 +1,7 @@
+#! /bin/bash
+
+for d in */; do
+  cd "$d" && ./quickstart_category.sh
+  cd ..
+done
+

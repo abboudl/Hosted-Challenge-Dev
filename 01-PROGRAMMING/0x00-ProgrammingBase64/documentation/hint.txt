@@ -1,0 +1,1 @@
+Check to see if your programming language has a base64 encoding function. Also dont forget to submit your session ID with your submission.

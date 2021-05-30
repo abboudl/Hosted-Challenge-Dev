@@ -1,0 +1,23 @@
+The flag is encoded.
+
+The player will connect to: nc (ip/domain) (port) and will be provided with the following hex values:
+
+0x46 0x4c 0x41 0x47 0x7b 0x35 0x34 0x35 0x66 0x32 0x37 0x34 0x38 0x30 0x34 0x7d
+
+The player will then need to perform the following operation and enter the solution using the correct format when prompted:
+
+1. Convert the hexidecimal from the server to binary
+
+0b1000110 0b1001100 0b1000001 0b1000111 0b1111011 0b110101 0b110100 0b110101
+
+2. Convert the binary to octal
+
+0o106 0o114 0o101 0o107 0o173 0o65 0o64 0o65 0o146 0o62 0o67 0o64 0o70 0o60 0o64 0o175
+
+3. Convert octal to ASCII (decimal)
+
+70 76 65 71 123 53 52 53 102 50 55 52 56 48 52 125
+
+4. Concert the ASCII (decimal) to text
+
+FLAG{545f274804}

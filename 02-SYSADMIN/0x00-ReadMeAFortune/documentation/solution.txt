@@ -1,0 +1,7 @@
+cd and ls have been aliased in .profile and .bashrc to "cowsay | fortune" to display a cow that says a fortune on the screen.
+ 
+To bypass, this simply run the full path of a command like /bin/ls or run unalias.
+
+Running the find command, you will find the correct flag by searching for find / -name *flag*.txt 
+
+Flag in actualflag.txt 

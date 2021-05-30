@@ -1,0 +1,4 @@
+Lesson: An attacker can edit .bashrc and .profile to run a command every 
+time a user logs in or starts a shell. This is a common Linux persistence technique.
+
+FLAG {226d30964a}

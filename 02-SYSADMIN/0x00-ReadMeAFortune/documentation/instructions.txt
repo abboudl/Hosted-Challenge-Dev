@@ -1,0 +1,33 @@
+IMPORTANT NOTE FOR ALL HOSTED SYSADMIN CHALLENGES: 
+---------------------------------------------------
+Remember that you are sharing this box with other players, so practice good operational security and hide your tracks! Don't leave files behind. 
+
+Files relevant to the challenge will only ever be available under the following directories:  
+- /home
+- /usr
+- /etc
+- /var/log
+Anything outside of these directories is not part of the challenge.
+
+Furthermore, if you feel the need to create a file, you can do so under /tmp.
+
+Finally, SYSADMIN challenge will be reset every 3 hours starting at 10:00AM.
+
+CHALLENGE INSTRUCTIONS:
+-----------------------
+
+Mooooooooooooooooooooooooo!
+
+How To SSH:
+-----------
+ssh -p (port) (user)@(hostname)
+Enter password at prompt...
+
+Challenge Info:
+---------------
+hostname: challenges.ctf.issessions.ca
+port: 30907
+user: team
+password: team
+
+

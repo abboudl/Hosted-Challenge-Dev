@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: readmeafortune
+  labels:
+    category: sysadmin
+    challenge: readmeafortune
+    service: debian
+spec:
+  replicas: 3 
+  selector:
+    matchLabels:
+      category: sysadmin
+      challenge: readmeafortune
+      service: debian
+  template:
+    metadata:
+      labels:
+        category: sysadmin
+        challenge: readmeafortune
+        service: debian
+    spec:
+      containers:
+      - name: readmeafortune-debian-sysadmin
+        image: gcr.io/ctf-demo-project/0x00readmeafortune-debian-sysadmin:1.0
+        imagePullPolicy: Always
+        resources: 
+          limits:
+            cpu: 300m
+            memory: 800Mi
+          requests:
+            cpu: 20m
+            memory: 30Mi
+        ports:
+        - containerPort: 22
+          name: ssh-port
+       
+---
+
+
+apiVersion: v1
+kind: Service
+metadata: 
+  name: readmeafortune-debian-sysadmin
+  labels:
+    category: sysadmin 
+    challenge: readmeafortune
+    service: debian
+spec:
+  type: NodePort
+  selector:
+    category: sysadmin 
+    challenge: readmeafortune
+    service: debian
+  ports:
+    - port: 22 # The port exposed by the service
+      name: ssh-port
+      targetPort: 22 # The port exposed by the pod
+      nodePort: 30907 # The port that is exposed on each Node on the cluster                                                                                                                                                                                                                                                                                                                                                           

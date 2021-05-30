@@ -1,0 +1,20 @@
+version: "3.5"
+
+services:
+
+  nginx:
+    container_name: progbase64-nginx-programming
+    image: progbase64-nginx-programming:1.0
+    build: ./docker_images/nginx/
+    ports:
+      - ${APP_IP}:${APP_PORT}:80
+    depends_on:
+      - "php"
+    
+    
+
+  php:
+    container_name: progbase64-php-programming
+    image: progbase64-php-programming:1.0
+    build: ./docker_images/php/
+

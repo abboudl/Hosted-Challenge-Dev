@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: allyourbases
+  labels:
+    category: cryptography 
+    challenge: allyourbases
+    service: pythontcpserver
+spec:
+  replicas: 3 
+  selector:
+    matchLabels:
+      category: cryptography
+      challenge: allyourbases
+      service: pythontcpserver
+  template:
+    metadata:
+      labels:
+        category: cryptography
+        challenge: allyourbases
+        service: pythontcpserver
+    spec:
+      containers:
+      - name: allyourbases-pythontcpserver-cryptography
+        image: gcr.io/ctf-demo-project/0x00allyourbases-pythontcpserver-cryptography:1.0
+        imagePullPolicy: Always
+        resources: 
+          limits:
+            cpu: 200m
+            memory: 300Mi
+          requests:
+            cpu: 20m
+            memory: 30Mi
+        ports:
+        - containerPort: 3000
+          name: python-port
+       
+---
+
+
+apiVersion: v1
+kind: Service
+metadata: 
+  name: allyourbases-pythontcpserver-cryptography
+  labels:
+    category: cryptography
+    challenge: allyourbases
+    service: pythontcpserver
+spec:
+  type: NodePort
+  selector:
+    category: cryptography
+    challenge: allyourbases
+    service: pythontcpserver
+  ports:
+    - port: 3000 # The port exposed by the service
+      name: python-port
+      targetPort: 3000 # The port exposed by the pod
+      nodePort: 30000 # The port exposed by the node     

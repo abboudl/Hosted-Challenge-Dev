@@ -1,0 +1,22 @@
+"Program contains an ""evaluate"" function that demonstrates the solution."
+
+import requests
+from bs4 import BeautifulSoup
+import base64
+import lxml
+
+s = requests.Session()
+
+r = s.get('http://127.0.0.1:15000')
+
+soup = BeautifulSoup(r.text, 'lxml')
+
+match = soup.find('p', class_='data').text
+
+match_bytes = match.encode('ascii')
+base_64 = base64.b64encode(match_bytes)
+base_64_string = base_64.decode('ascii')
+
+url = 'http://127.0.0.1:15000/index.php?answer=' + base_64_string
+r2 = s.get(url)
+print(r2.text)
