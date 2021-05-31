@@ -69,6 +69,24 @@ Note the number at the beginning of each category and challenge folder. This num
 
 This is important because CTFd requires a challenge to be present before another challenge marks it as a dependency. For example, SQLInjection2 cannot refer to SQLInjection1 as dependency until SQLInjection1 is has been deployed to CTFd.   
 
+## Hardening Hosted Challenges
+
+Special care should be taken when developing hosted challenges. The challenge developer should as much as possible limit one player's ability to sabotage another player. This is especially important for challenges where players log into a live box shared by one or more teams. Hardening hosted challenges can include but is not limited to:
+- making certain locations read only.
+- removing undeeded or dangerous software.
+- removing any privilege escalation utilities.
+- etc.
+
+### SYSADMIN Base Image
+A hardened base image is provided for SYSADMIN challenges in the SYSADMIN category. This image:
+- installs common Linux utilities and CTF tools
+- remove the ability to install software from the container
+- removes the SSH client
+- disallows root login via SSH
+- increases the maximum number of simultaneous SSH connections to the container
+- enables syslog and crond
+
+
 ## Provisioning Kubernetes Objects
 
 ### Resources File
