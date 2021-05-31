@@ -517,7 +517,7 @@ And to take it down using the `down` switch:
 challenge down 02-SYSADMIN/0x00-ReadMeAFortune/
 ```
 
-The challenge script deploys a challenge by:
+The `challenge` script deploys a hosted challenge by:
 1. building its docker images in the `docker_images` folder
 2. pushing them to Google Container Registry (GCR)
 3. running kubectl against `resources.yml` to provision the Kubernetes objects on GKE
