@@ -1,0 +1,20 @@
+attempts: 0
+author: Nicholas Johnston
+category: PROGRAMMING
+decay: 30
+description: 'Connect to this challenge here: http://progbase64.ctf.issessions.ca<br><br>Instructions
+  are on the web page.<br>'
+flags:
+- FLAG{e9a25db06f}
+hints:
+- content: Check to see if your programming language has a base64 encoding function.
+    Also dont forget to submit your session ID with your submission.<br>
+  cost: 0
+minimum: 50
+name: '0x00: Base64'
+state: hidden
+tags:
+- trivial
+type: dynamic
+value: 100
+version: 1.0
