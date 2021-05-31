@@ -11,9 +11,11 @@ This repository is strictly for **Hosted Challenges**. File-based Challenges are
 
 ## Infrastructure
 
+Hosted challenges are deployed to Google Kubernetes Engine (GKE) and made widely available using HAProxy and ingress-nginx. 
+
 ### Kubernetes
 
-Hosted challenges are deployed on a Google Kubernetes Engine (GKE) cluster. Kubernetes affords CTF organizers several benefits:
+Hosted challenges are deployed on a GKE cluster. Kubernetes affords CTF organizers several benefits:
 - Challenges are **self-healing**. If a challenge goes down, the CTF administrator can instruct Kubernetes to automatically restart it.
 - Challenges are **replicated**. The CTF administrator can specify a number of replicas for pods in a Deployment or StatefulSet. Replication ensures that challenges are **scalable** and **available**.
 - Challenges are **easy to deploy and update** in-place.
