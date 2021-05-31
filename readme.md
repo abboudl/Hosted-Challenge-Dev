@@ -490,6 +490,8 @@ You will notice that two files have been created in each challenge directory:
 1. **challenge.yml**: this is CTFd standard deployment file. We do not create directly but generate it programmatically because it requires us to write instructions and hints in HTML inside a YAML file which is very cumbersome and unrealistic for challenges with a long set of instructions.
 2. **[ChallengeName].zip**: this is a zipped up version of the contents of the player_files directory as well as instructions.txt. This prevents the user from having to click on each challenge file individually to download it. It also includes the instructions.txt file for those obsessed with the command line and do not wish to keep revisiting CTFd.
 
+## Deployment
+
 ### Deployment to CTFd
 
 To deploy the challenge to CTFd for the first time, run the following commands in sequence:
@@ -521,7 +523,7 @@ The challenge script deploys a challenge by:
 3. running kubectl against `resources.yml` to provision the Kubernetes objects on GKE
 4. Opening firewall ports (if needed) to allow connectivity to the challenge.
 
-### Saving Your Work: Pushing Changes to Github
+## Saving Your Work: Pushing Changes to Github
 
 1. Add your challenge into source control.
 ```
